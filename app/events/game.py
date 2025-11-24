@@ -18,6 +18,20 @@ sid_to_player_id = {}
 player_id_to_sid = {}
 iniciando_partida = set()
 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+openai_client = None
+OPENAI_AVAILABLE = False
+
+if OPENAI_API_KEY:
+    try:
+        openai_client = OpenAI(api_key=OPENAI_API_KEY)
+        OPENAI_AVAILABLE = True
+    except Exception as e:
+        print(f"⚠️ No se pudo inicializar OpenAI: {e}")
+else:
+    print("⚠️ OPENAI_API_KEY no configurada, se usará validación básica")
+
 # Rate limiting (en memoria local por ahora)
 last_request_times = {}
 round_timers = {}
@@ -91,59 +105,151 @@ def _contiene_palabras_prohibidas(texto: str) -> bool:
     return False
 
 
-def _validar_respuestas_llm(letra_ronda, categorias, respuestas):
-    """Usa OpenAI para validar respuestas. Devuelve dict {jugador: {categoria: {valida, razon}}}."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        return None
+def generar_prompt_validacion(respuesta, categoria, letra):
+    return (
+        "Estás validando respuestas del juego Basta / Stop. "
+        "Reglas: la palabra debe empezar con la letra indicada, debe pertenecer a la categoría, "
+        "no debe ser ofensiva ni inventada. Devuelve solo JSON.\n"
+        f"Letra de la ronda: {letra}.\n"
+        f"Categoría: {categoria}.\n"
+        f"Respuesta: {respuesta}.\n"
+        "Responde SOLO \"SI\" o \"NO\" seguido de una razón breve.\n"
+        'Formato: "SI - razón" o "NO - razón"'
+    )
 
-    try:
-        client = OpenAI(api_key=api_key)
-        model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 
-        prompt_payload = {
-            "instrucciones": "Valida respuestas del juego Basta. Marca false si no tienen sentido, son ofensivas o no empiezan con la letra indicada.",
-            "letra": letra_ronda,
-            "categorias": categorias,
-            "respuestas": respuestas,
-            "formato_respuesta": {
-                "jugador": {
-                    "categoria": {
-                        "valida": True,
-                        "razon": "texto breve"
-                    }
-                }
-            }
-        }
+def validar_respuesta_con_ia(respuesta, categoria, letra):
+    """
+    Valida una respuesta usando IA de OpenAI
+    Retorna: (es_valida: bool, razon: str, confianza: float)
+    """
 
-        completion = client.chat.completions.create(
-            model=model,
-            temperature=0,
-            response_format={"type": "json_object"},
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Eres un juez de un juego estilo Basta. Responde SOLO en JSON y sin comentarios.",
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps(prompt_payload, ensure_ascii=False),
-                },
-            ],
-            timeout=20,
-        )
+    # No validar respuestas vacías (ya se filtran antes)
+    if not respuesta or len(respuesta.strip()) < 2:
+        return False, "Respuesta demasiado corta", 1.0
 
-        content = completion.choices[0].message.content
-        if not content:
-            return None
-        parsed = json.loads(content)
-        # aceptar tanto {'validaciones': {...}} como objeto directo
-        if "validaciones" in parsed:
-            return parsed.get("validaciones")
-        return parsed
-    except Exception as e:
-        print(f"⚠️ Error en validación IA: {e}")
-        return None
+    respuesta_limpia = respuesta.strip()
+    respuesta_lower = respuesta_limpia.lower()
+
+    # Filtro de palabras prohibidas y letra inicial
+    if _contiene_palabras_prohibidas(respuesta_limpia):
+        return False, "Lenguaje inapropiado", 1.0
+    if letra and respuesta_limpia[0].upper() != letra.upper():
+        return False, f"Debe iniciar con la letra {letra.upper()}", 1.0
+
+    # Detectar respuestas obviamente inválidas
+    if len(set(respuesta_lower)) <= 2:  # Ej: "ññññññ", "aaaaa", "sis"
+        return False, "Respuesta sin sentido (caracteres repetidos)", 1.0
+
+    # Detectar palabras que parecen inventadas o sin sentido (patrones comunes)
+    # Palabras muy cortas sin sentido (menos de 3 caracteres, excepto si son nombres comunes)
+    if len(respuesta_limpia) < 3:
+        if categoria.lower() not in ["nombre"]:  # Permitir nombres cortos como "Ana", "Luis"
+            return False, "Respuesta demasiado corta o sin sentido", 1.0
+
+    # Detectar combinaciones de letras que no forman palabras reconocibles
+    # Patrones como "asdas", "sasd", "sonso", etc.
+    if len(respuesta_limpia) >= 4:
+        # Verificar si parece una palabra inventada (muchas consonantes seguidas o patrones extraños)
+        vocales = set('aeiouáéíóúü')
+        consonantes_seguidas = 0
+        max_consonantes = 0
+        for char in respuesta_lower:
+            if char not in vocales and char.isalpha():
+                consonantes_seguidas += 1
+                max_consonantes = max(max_consonantes, consonantes_seguidas)
+            else:
+                consonantes_seguidas = 0
+
+        # Si tiene 3 o más consonantes seguidas, probablemente es inventada
+        if max_consonantes >= 3:
+            return False, "Palabra no reconocible o inventada", 1.0
+
+        # Detectar patrones comunes de palabras inventadas
+        # Palabras que terminan en consonantes poco comunes o tienen patrones extraños
+        patrones_inventados = ["asd", "sasd", "asdas", "qwerty", "zxcv", "hjkl", "fghj"]
+        if any(patron in respuesta_lower for patron in patrones_inventados):
+            return False, "Palabra no reconocible o inventada", 1.0
+
+        # Detectar palabras que parecen combinaciones aleatorias (muchas consonantes alternadas)
+        # Ej: "sasd", "asdas" tienen patrones CVCV o VCVCV que no son comunes en español
+        if len(respuesta_limpia) == 4 or len(respuesta_limpia) == 5:
+            # Contar vocales y consonantes
+            num_vocales = sum(1 for c in respuesta_lower if c in vocales)
+            num_consonantes = sum(1 for c in respuesta_lower if c.isalpha() and c not in vocales)
+
+            # Si tiene muy pocas vocales para su longitud, probablemente es inventada
+            if num_vocales == 0 and num_consonantes >= 3:
+                return False, "Palabra no reconocible o inventada", 1.0
+
+            # Si tiene un patrón muy regular CVCV o VCVCV y no es una palabra común, rechazar
+            # (esto es una heurística, pero ayuda a detectar "sasd", "asdas")
+            if num_vocales == num_consonantes and num_vocales <= 2:
+                # Verificar si es una palabra común en español (lista básica)
+                palabras_comunes_4_5 = {"casa", "mesa", "gato", "perro", "agua", "libro", "carta", "plato", "vaso", "silla", "mesa", "cama", "pelo", "mano", "pie", "ojo", "cara", "boca", "nariz", "diente", "brazo", "pierna", "hueso", "piel", "sangre", "hueso", "carne", "pan", "leche", "huevo", "queso", "azul", "rojo", "verde", "negro", "blanco", "gris", "amarillo", "rosa", "marrón", "naranja", "morado", "celeste", "verde", "azul"}
+                if respuesta_lower not in palabras_comunes_4_5:
+                    # Si no está en la lista y tiene un patrón sospechoso, rechazar
+                    # (esto es conservador pero ayuda a detectar palabras inventadas)
+                    pass  # No rechazar automáticamente, dejar que la IA decida
+
+    # Detectar palabras que son verbos comunes cuando no corresponde
+    verbos_comunes = {"salir", "entrar", "comer", "beber", "dormir", "hablar", "hacer", "decir", "ir", "venir", "ver", "saber", "poder", "querer", "tener", "estar", "ser"}
+    if respuesta_lower in verbos_comunes:
+        if categoria.lower() not in ["verbo", "acción"]:
+            return False, f"'{respuesta_limpia}' es un verbo, no corresponde a la categoría", 1.0
+
+    # USAR OPENAI (si está disponible)
+    if OPENAI_AVAILABLE and openai_client:
+        try:
+            # Usar prompt mejorado (adaptado para JSON)
+            prompt_base = generar_prompt_validacion(respuesta, categoria, letra)
+            # Cambiar el formato de respuesta para JSON
+            prompt = prompt_base.replace(
+                'Responde SOLO "SI" o "NO" seguido de una razón breve.\nFormato: "SI - razón" o "NO - razón"',
+                'Responde SOLO con formato JSON:\n{"valida": true/false, "razon": "explicación breve", "confianza": 0.0-1.0}'
+            )
+
+            response = openai_client.chat.completions.create(
+                model=OPENAI_MODEL or "gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Eres un validador experto de juegos de palabras. Responde solo con JSON."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
+                max_tokens=150,
+                timeout=5,
+            )
+
+            # Parsear respuesta
+            resultado_texto = response.choices[0].message.content.strip()
+
+            # Extraer JSON (puede venir con ```json o sin formato)
+            if "```json" in resultado_texto:
+                resultado_texto = resultado_texto.split("```json")[1].split("```")[0]
+            elif "```" in resultado_texto:
+                resultado_texto = resultado_texto.split("```")[1].split("```")[0]
+
+            resultado = json.loads(resultado_texto.strip())
+
+            es_valida = resultado.get("valida", False)
+            razon = resultado.get("razon", "Sin razón especificada")
+            confianza = resultado.get("confianza", 0.5)
+
+            print(f"🤖 OpenAI validó '{respuesta}' ({categoria}): {'✓' if es_valida else '✗'} - {razon}")
+
+            return es_valida, razon, confianza
+
+        except json.JSONDecodeError as e:
+            print(f"❌ Error parseando JSON de OpenAI: {e}")
+            return True, "Error al procesar validación IA", 0.3
+        except Exception as e:
+            print(f"❌ Error en OpenAI: {e}")
+            return True, "Error de validación IA", 0.3
+
+    # Si OpenAI no está disponible, usar validación básica
+    print(f"⚠️ OpenAI no disponible. Validación básica: '{respuesta}' ({'✓' if respuesta_limpia else '✗'})")
+    # Validación básica: solo verificar que no esté vacía y empiece con la letra correcta
+    return True, "Validación básica (IA no disponible)", 0.5
 
 
 def _evaluar_respuestas(sala, codigo):
@@ -151,10 +257,6 @@ def _evaluar_respuestas(sala, codigo):
     letra_ronda = (sala.get("letra") or "").upper()
     categorias = sala.get("categorias", [])
     respuestas = sala.get("respuestas_ronda", {})
-
-    resultados_llm = None
-    if sala.get("validacion_activa", True):
-        resultados_llm = _validar_respuestas_llm(letra_ronda, categorias, respuestas)
 
     validaciones_ia = {}
     puntos_por_respuesta = {}
@@ -172,22 +274,12 @@ def _evaluar_respuestas(sala, codigo):
 
             if not respuesta:
                 razon = "Respuesta vacía"
-            elif _contiene_palabras_prohibidas(respuesta):
-                razon = "Lenguaje inapropiado"
-            elif letra_ronda and respuesta[0].upper() != letra_ronda:
-                razon = f"Debe iniciar con la letra {letra_ronda}"
             else:
-                decision_llm = resultados_llm or {}
-                detalle_llm = decision_llm.get(jugador, {}).get(categoria, {}) if isinstance(decision_llm, dict) else {}
-                if "valida" in detalle_llm:
-                    es_valida = bool(detalle_llm.get("valida"))
-                    razon = detalle_llm.get("razon") or ("Válida" if es_valida else "Rechazada por IA")
-                elif resultados_llm is None:
-                    es_valida = True
-                    razon = "Válida"
+                if sala.get("validacion_activa", True):
+                    es_valida, razon, _ = validar_respuesta_con_ia(respuesta, categoria, letra_ronda)
                 else:
                     es_valida = True
-                    razon = "Válida (fallback)"
+                    razon = "Validación desactivada"
 
             puntos = 100 if es_valida else 0
             total_jugador += puntos
