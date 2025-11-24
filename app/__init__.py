@@ -9,7 +9,19 @@ def create_app():
     flask_app.secret_key = os.getenv("SECRET_KEY", "basta_secret_2025")
     
     # Configuración de SocketIO
-    socketio.init_app(flask_app, cors_allowed_origins="*", async_mode='threading')
+    # En producción con Gunicorn, usar eventlet es más eficiente
+    # En desarrollo, threading funciona bien
+    async_mode = os.getenv("SOCKETIO_ASYNC_MODE", "eventlet")
+    socketio.init_app(
+        flask_app, 
+        cors_allowed_origins="*", 
+        async_mode=async_mode,
+        logger=True,
+        engineio_logger=False,
+        ping_timeout=60,
+        ping_interval=25,
+        max_http_buffer_size=1e6
+    )
     
     # Registrar blueprints
     from app.routes.admin import admin_bp

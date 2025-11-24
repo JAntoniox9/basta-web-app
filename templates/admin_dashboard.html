@@ -533,7 +533,15 @@
     </div>
 
     <script>
-        const socket = io();
+        // Configurar Socket.IO con opciones de reconexión
+        const socket = io({
+            transports: ['websocket', 'polling'],
+            upgrade: true,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000
+        });
         let currentRoom = null;
         let updateInterval = null;
         let currentSalaData = null;

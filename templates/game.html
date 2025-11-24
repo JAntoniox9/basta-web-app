@@ -874,7 +874,28 @@
         window.location.replace("/join");
     }
     
-    const socket = io();
+    // Configurar Socket.IO con opciones de reconexión
+    const socket = io({
+        transports: ['websocket', 'polling'],
+        upgrade: true,
+        rememberUpgrade: true,
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: Infinity,
+        timeout: 20000
+    });
+    
+    // Manejar errores de conexión
+    socket.on("connect_error", (error) => {
+        console.error("Error de conexión Socket.IO:", error);
+    });
+    
+    socket.on("reconnect", () => {
+        console.log("Reconectado");
+        // Re-enviar eventos necesarios después de reconectar
+        socket.emit("rejoin_room_event", { codigo: codigo, jugador: jugador });
+    });
     const bastaBtn = document.getElementById("basta-btn");
     const timerText = document.getElementById("timer");
     const timerProgress = document.getElementById("timer-progress");

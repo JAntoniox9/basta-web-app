@@ -594,8 +594,41 @@
     
     // Inicializar la conexión y la sala
     function inicializarSala() {
-        socket = io();
+        // Configurar Socket.IO con opciones de reconexión y transporte
+        socket = io({
+            transports: ['websocket', 'polling'],
+            upgrade: true,
+            rememberUpgrade: true,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: Infinity,
+            timeout: 20000,
+            forceNew: false
+        });
+        
         esAnfitrion = (jugadorActual === anfitrion);
+        
+        // Manejar errores de conexión
+        socket.on("connect_error", (error) => {
+            console.error("Error de conexión Socket.IO:", error);
+            mostrarNotificacion("⚠️ Error de conexión. Reintentando...", "warning");
+        });
+        
+        socket.on("disconnect", (reason) => {
+            console.log("Desconectado:", reason);
+            if (reason === "io server disconnect") {
+                // El servidor desconectó, reconectar manualmente
+                socket.connect();
+            }
+        });
+        
+        socket.on("reconnect", (attemptNumber) => {
+            console.log("Reconectado después de", attemptNumber, "intentos");
+            mostrarNotificacion("✅ Reconectado", "success");
+            // Re-enviar join_room_event después de reconectar
+            socket.emit("join_room_event", { codigo: codigoActual, jugador: jugadorActual });
+        });
 
     // Enviar unión a la sala
     socket.on("connect", () => {
