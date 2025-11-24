@@ -729,16 +729,22 @@
         if (data && data.jugadores_listos) {
             jugadoresListos = data.jugadores_listos || [];
             console.log("Jugadores listos actualizados:", jugadoresListos);
+            
+            // Actualizar tabla de jugadores inmediatamente
+            // Obtener datos actualizados de la sala
+            socket.emit("join_room_event", { codigo: codigoActual, jugador: jugadorActual });
+            
+            // Actualizar botones
             actualizarBotonListo();
             actualizarBotonAnfitrion();
             
             // Si el jugador actual está en la lista, mostrar notificación
             if (jugadoresListos.includes(jugadorActual)) {
                 mostrarNotificacion("✅ ¡Estás listo!", "success");
+            } else if (esAnfitrion && data.jugador && data.jugador !== jugadorActual) {
+                // Si es anfitrión y otro jugador se marcó como listo
+                mostrarNotificacion(`✅ ${data.jugador} está listo`, "success");
             }
-            
-            // Actualizar tabla de jugadores
-            socket.emit("join_room_event", { codigo: codigoActual, jugador: jugadorActual });
         } else {
             console.error("Datos inválidos en player_ready_update:", data);
         }
@@ -957,8 +963,9 @@
             errorMensaje.style.display = "none";
             isNavigatingToGame = true;
             socket.emit("host_is_starting", { codigo: codigoActual, jugador: jugadorActual });
+            // Redirigir directamente a /game en lugar de /start
             setTimeout(() => {
-                window.location.href = `/start/${codigoActual}?jugador=${jugadorActual}`;
+                window.location.href = `/game/${codigoActual}`;
             }, 100);
         } else {
             alert("¡Solo el anfitrión puede iniciar el juego!");

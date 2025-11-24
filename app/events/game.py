@@ -82,43 +82,56 @@ def handle_join(data):
     sid_to_name[request.sid] = jugador
     socketio.server.enter_room(request.sid, codigo)
 
-    sala = state_store.get_sala(codigo)
+    # Usar db_store como fuente principal para obtener datos actualizados
+    sala = db_store.get_sala(codigo)
+    if not sala:
+        # Fallback a state_store si no está en db_store
+        sala = state_store.get_sala(codigo)
+        if not sala:
+            print(f"⚠️ Sala {codigo} no encontrada para join_room_event desde IP: {ip}")
+            return
 
-    if sala:
-        if jugador not in sala["jugadores"]:
-            sala["jugadores"].append(jugador)
-            if jugador not in sala["puntuaciones"]:
-                sala["puntuaciones"][jugador] = 0
-            state_store.save()
+    if jugador not in sala.get("jugadores", []):
+        sala["jugadores"].append(jugador)
+        if jugador not in sala.get("puntuaciones", {}):
+            sala["puntuaciones"][jugador] = 0
+        # Actualizar en db_store
+        try:
+            db_store.set_sala(codigo, sala)
+        except Exception as e:
+            print(f"⚠️ Error actualizando db_store en join: {e}")
+        # También actualizar state_store
+        state_store.set_sala(codigo, sala)
+        state_store.save()
+    
+    # Quitar de lista de desconectados si estaba
+    if "jugadores_desconectados" in sala and jugador in sala.get("jugadores_desconectados", []):
+        sala["jugadores_desconectados"].remove(jugador)
         
-        # Quitar de lista de desconectados si estaba
-        if "jugadores_desconectados" in sala and jugador in sala["jugadores_desconectados"]:
-            sala["jugadores_desconectados"].remove(jugador)
-            
-        iniciando_partida.discard(jugador)
+    iniciando_partida.discard(jugador)
 
-        print(f"🟢 Jugador {jugador} unido a sala {codigo} (IP: {ip})")
+    print(f"🟢 Jugador {jugador} unido a sala {codigo} (IP: {ip})")
 
-        # Enviar estado actual de la sala
-        socketio.emit(
-            "player_joined",
-            {
-                "jugadores": sala["jugadores"],
-                "puntuaciones": sala.get("puntuaciones", {}),
-                "jugadores_listos": sala.get("jugadores_listos", []),
-                "jugadores_desconectados": sala.get("jugadores_desconectados", []),
-                "configuracion": {
-                    "rondas": sala.get("rondas", 3),
-                    "dificultad": sala.get("dificultad", "normal"),
-                    "modo_juego": sala.get("modo_juego", "clasico"),
-                    "chat_habilitado": sala.get("chat_habilitado", True),
-                    "sonidos_habilitados": sala.get("sonidos_habilitados", True),
-                    "powerups_habilitados": sala.get("powerups_habilitados", True),
-                    "validacion_activa": sala.get("validacion_activa", True)
-                }
-            },
-            room=codigo
-        )
+    # Enviar estado actual de la sala con datos actualizados
+    socketio.emit(
+        "player_joined",
+        {
+            "jugadores": sala.get("jugadores", []),
+            "puntuaciones": sala.get("puntuaciones", {}),
+            "jugadores_listos": sala.get("jugadores_listos", []),
+            "jugadores_desconectados": sala.get("jugadores_desconectados", []),
+            "configuracion": {
+                "rondas": sala.get("rondas", 3),
+                "dificultad": sala.get("dificultad", "normal"),
+                "modo_juego": sala.get("modo_juego", "clasico"),
+                "chat_habilitado": sala.get("chat_habilitado", True),
+                "sonidos_habilitados": sala.get("sonidos_habilitados", True),
+                "powerups_habilitados": sala.get("powerups_habilitados", True),
+                "validacion_activa": sala.get("validacion_activa", True)
+            }
+        },
+        room=codigo
+    )
 
 @socketio.on("player_ready")
 def handle_player_ready(data):
