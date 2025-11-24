@@ -3,6 +3,9 @@ from flask import request
 from app.services.state_store import state_store
 from app.services.db_store import db_store
 from app.utils.helpers import get_client_ip
+from openai import OpenAI
+import json
+import os
 import random
 import string
 import threading
@@ -88,11 +91,70 @@ def _contiene_palabras_prohibidas(texto: str) -> bool:
     return False
 
 
+def _validar_respuestas_llm(letra_ronda, categorias, respuestas):
+    """Usa OpenAI para validar respuestas. Devuelve dict {jugador: {categoria: {valida, razon}}}."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None
+
+    try:
+        client = OpenAI(api_key=api_key)
+        model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+
+        prompt_payload = {
+            "instrucciones": "Valida respuestas del juego Basta. Marca false si no tienen sentido, son ofensivas o no empiezan con la letra indicada.",
+            "letra": letra_ronda,
+            "categorias": categorias,
+            "respuestas": respuestas,
+            "formato_respuesta": {
+                "jugador": {
+                    "categoria": {
+                        "valida": True,
+                        "razon": "texto breve"
+                    }
+                }
+            }
+        }
+
+        completion = client.chat.completions.create(
+            model=model,
+            temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Eres un juez de un juego estilo Basta. Responde SOLO en JSON y sin comentarios.",
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(prompt_payload, ensure_ascii=False),
+                },
+            ],
+            timeout=20,
+        )
+
+        content = completion.choices[0].message.content
+        if not content:
+            return None
+        parsed = json.loads(content)
+        # aceptar tanto {'validaciones': {...}} como objeto directo
+        if "validaciones" in parsed:
+            return parsed.get("validaciones")
+        return parsed
+    except Exception as e:
+        print(f"⚠️ Error en validación IA: {e}")
+        return None
+
+
 def _evaluar_respuestas(sala, codigo):
-    """Evalúa las respuestas con reglas básicas (letra correcta y sin obscenidades)."""
+    """Evalúa las respuestas con IA (y reglas básicas como respaldo)."""
     letra_ronda = (sala.get("letra") or "").upper()
     categorias = sala.get("categorias", [])
     respuestas = sala.get("respuestas_ronda", {})
+
+    resultados_llm = None
+    if sala.get("validacion_activa", True):
+        resultados_llm = _validar_respuestas_llm(letra_ronda, categorias, respuestas)
 
     validaciones_ia = {}
     puntos_por_respuesta = {}
@@ -115,7 +177,17 @@ def _evaluar_respuestas(sala, codigo):
             elif letra_ronda and respuesta[0].upper() != letra_ronda:
                 razon = f"Debe iniciar con la letra {letra_ronda}"
             else:
-                es_valida = True
+                decision_llm = resultados_llm or {}
+                detalle_llm = decision_llm.get(jugador, {}).get(categoria, {}) if isinstance(decision_llm, dict) else {}
+                if "valida" in detalle_llm:
+                    es_valida = bool(detalle_llm.get("valida"))
+                    razon = detalle_llm.get("razon") or ("Válida" if es_valida else "Rechazada por IA")
+                elif resultados_llm is None:
+                    es_valida = True
+                    razon = "Válida"
+                else:
+                    es_valida = True
+                    razon = "Válida (fallback)"
 
             puntos = 100 if es_valida else 0
             total_jugador += puntos
@@ -180,7 +252,7 @@ def finalizar_ronda(codigo):
     db_store.set_sala(codigo, sala)
     state_store.set_sala(codigo, sala)
 
-    _evaluar_respuestas(sala, codigo)
+    threading.Thread(target=_evaluar_respuestas, args=(sala, codigo), daemon=True).start()
 
 def preparar_ronda(codigo, sala=None):
     """Inicializa los datos de la ronda y arranca el temporizador."""
