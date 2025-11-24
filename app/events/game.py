@@ -48,7 +48,11 @@ def iniciar_temporizador(codigo):
             except Exception:
                 pass
 
-            socketio.emit("update_timer", {"tiempo": tiempo_restante}, room=codigo)
+            socketio.emit(
+                "update_timer",
+                {"tiempo": tiempo_restante, "pausada": sala.get("pausada", False)},
+                room=codigo,
+            )
 
             if tiempo_restante <= 0:
                 socketio.emit("basta_triggered", {"codigo": codigo}, room=codigo)
