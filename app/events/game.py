@@ -27,6 +27,7 @@ if OPENAI_API_KEY:
     try:
         openai_client = OpenAI(api_key=OPENAI_API_KEY)
         OPENAI_AVAILABLE = True
+        print(f"✅ OpenAI habilitado para validación (modelo: {OPENAI_MODEL})")
     except Exception as e:
         print(f"⚠️ No se pudo inicializar OpenAI: {e}")
 else:
@@ -220,8 +221,14 @@ def validar_respuesta_con_ia(respuesta, categoria, letra):
                 timeout=5,
             )
 
+            print(
+                f"📨 Enviando a OpenAI (modelo {OPENAI_MODEL}) la respuesta '{respuesta_limpia}' para categoria '{categoria}' con letra '{letra}'"
+            )
+
             # Parsear respuesta
             resultado_texto = response.choices[0].message.content.strip()
+
+            print(f"📨 Respuesta bruta de OpenAI: {resultado_texto}")
 
             # Extraer JSON (puede venir con ```json o sin formato)
             if "```json" in resultado_texto:

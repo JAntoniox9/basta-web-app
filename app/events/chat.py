@@ -68,14 +68,14 @@ def handle_chat_message(data):
         )
         return
 
-    # Validar que el mensaje comience con la letra actual de la ronda
+    # Bloquear mensajes que empiezan con la letra en juego (se permite cualquier otra)
     letra_ronda = (sala.get("letra") or "").strip().upper()
     if letra_ronda and mensaje:
         primera_letra = mensaje[0].upper()
-        if primera_letra != letra_ronda:
+        if primera_letra == letra_ronda:
             socketio.emit(
                 "mensaje_rechazado",
-                {"razon": f"El mensaje debe iniciar con la letra {letra_ronda}"},
+                {"razon": f"No se permiten mensajes que comiencen con la letra {letra_ronda}"},
                 room=request.sid,
             )
             return
