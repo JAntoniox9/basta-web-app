@@ -4,6 +4,7 @@ from app.services.state_store import state_store
 from app.services.db_store import db_store
 from app.utils.helpers import get_client_ip
 from openai import OpenAI
+import inspect
 import json
 import os
 import random
@@ -23,15 +24,47 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 openai_client = None
 OPENAI_AVAILABLE = False
 
-if OPENAI_API_KEY:
+
+def _init_openai_client():
+    """Inicializa el cliente de OpenAI tolerando versiones sin soporte de proxy."""
+    global openai_client, OPENAI_AVAILABLE
+
+    if not OPENAI_API_KEY:
+        print("⚠️ OPENAI_API_KEY no configurada, se usará validación básica")
+        return
+
+    kwargs = {"api_key": OPENAI_API_KEY}
+    proxy_url = os.getenv("OPENAI_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+    if proxy_url:
+        # Solo agregar proxies si la versión del cliente lo soporta
+        if "proxies" in inspect.signature(OpenAI).parameters:
+            kwargs["proxies"] = proxy_url
+        else:
+            print("⚠️ Cliente OpenAI no soporta proxies; se inicializará sin proxy")
+
     try:
-        openai_client = OpenAI(api_key=OPENAI_API_KEY)
+        openai_client = OpenAI(**kwargs)
         OPENAI_AVAILABLE = True
         print(f"✅ OpenAI habilitado para validación (modelo: {OPENAI_MODEL})")
+    except TypeError as e:
+        # Algunos entornos inyectan proxies automáticamente; reintentar sin ellos
+        if "proxies" in kwargs:
+            print(f"⚠️ OpenAI rechazó proxies ({e}); reintentando sin proxy")
+            kwargs.pop("proxies", None)
+            try:
+                openai_client = OpenAI(**kwargs)
+                OPENAI_AVAILABLE = True
+                print(f"✅ OpenAI habilitado para validación sin proxy (modelo: {OPENAI_MODEL})")
+                return
+            except Exception as inner:
+                print(f"⚠️ No se pudo inicializar OpenAI tras reintentar sin proxy: {inner}")
+                return
+        print(f"⚠️ No se pudo inicializar OpenAI: {e}")
     except Exception as e:
         print(f"⚠️ No se pudo inicializar OpenAI: {e}")
-else:
-    print("⚠️ OPENAI_API_KEY no configurada, se usará validación básica")
+
+
+_init_openai_client()
 
 # Rate limiting (en memoria local por ahora)
 last_request_times = {}
