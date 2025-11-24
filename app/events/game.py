@@ -3,6 +3,9 @@ from flask import request
 from app.services.state_store import state_store
 from app.services.db_store import db_store
 from app.utils.helpers import get_client_ip
+import random
+import string
+import threading
 import time
 
 # Mapeos en memoria (esto debería moverse a Redis también eventualmente)
@@ -13,7 +16,98 @@ player_id_to_sid = {}
 iniciando_partida = set()
 
 # Rate limiting (en memoria local por ahora)
-last_request_times = {} 
+last_request_times = {}
+round_timers = {}
+timer_lock = threading.Lock()
+
+
+def generar_letra():
+    """Genera una letra aleatoria (excluye caracteres especiales)."""
+    return random.choice(string.ascii_uppercase)
+
+
+def iniciar_temporizador(codigo):
+    """Inicia un temporizador en segundo plano que emite updates al cliente."""
+
+    def _tick():
+        while True:
+            time.sleep(1)
+
+            sala = db_store.get_sala(codigo)
+            if not sala:
+                break
+
+            if sala.get("pausada"):
+                continue
+
+            tiempo_restante = max(0, int(sala.get("tiempo_restante", 0)) - 1)
+            sala["tiempo_restante"] = tiempo_restante
+            try:
+                db_store.set_sala(codigo, sala)
+                state_store.set_sala(codigo, sala)
+            except Exception:
+                pass
+
+            socketio.emit(
+                "update_timer",
+                {"tiempo": tiempo_restante, "pausada": sala.get("pausada", False)},
+                room=codigo,
+            )
+
+            if tiempo_restante <= 0:
+                socketio.emit("basta_triggered", {"codigo": codigo}, room=codigo)
+                break
+
+        with timer_lock:
+            round_timers.pop(codigo, None)
+
+    with timer_lock:
+        if codigo in round_timers:
+            return
+        t = threading.Thread(target=_tick, daemon=True)
+        round_timers[codigo] = t
+        t.start()
+
+
+def preparar_ronda(codigo, sala=None):
+    """Inicializa los datos de la ronda y arranca el temporizador."""
+    sala = sala or db_store.get_sala(codigo)
+    if not sala:
+        return
+
+    sala["en_curso"] = True
+    sala["finalizada"] = False
+    sala["pausada"] = False
+    sala["basta_activado"] = False
+    sala["tiempo_restante"] = sala.get("tiempo_por_ronda", 180)
+    sala["letra"] = generar_letra()
+
+    db_store.set_sala(codigo, sala)
+    state_store.set_sala(codigo, sala)
+
+    socketio.emit(
+        "start_game",
+        {
+            "codigo": codigo,
+            "letra": sala["letra"],
+            "tiempo_restante": sala["tiempo_restante"],
+        },
+        room=codigo,
+    )
+
+    socketio.emit(
+        "restore_state",
+        {
+            "letra": sala["letra"],
+            "ronda": sala.get("ronda_actual", 1),
+            "tiempo_restante": sala["tiempo_restante"],
+            "basta_activado": False,
+            "pausada": False,
+        },
+        room=codigo,
+    )
+
+    iniciar_temporizador(codigo)
 
 def check_rate_limit(sid, action, cooldown=1.0):
     """Verifica si el cliente está enviando solicitudes demasiado rápido"""
@@ -132,6 +226,85 @@ def handle_join(data):
         },
         room=codigo
     )
+
+
+@socketio.on("rejoin_room_event")
+def handle_rejoin(data):
+    """Permite a un jugador volver a unirse a la sala y restaura el estado."""
+    codigo = data.get("codigo")
+    jugador = data.get("jugador")
+
+    if not codigo or not jugador:
+        return
+
+    sala = db_store.get_sala(codigo)
+    if not sala:
+        sala = state_store.get_sala(codigo)
+    if not sala:
+        return
+
+    sid_to_room[request.sid] = codigo
+    sid_to_name[request.sid] = jugador
+    socketio.server.enter_room(request.sid, codigo)
+
+    if jugador not in sala.get("jugadores", []):
+        sala.setdefault("jugadores", []).append(jugador)
+        sala.setdefault("puntuaciones", {})[jugador] = sala["puntuaciones"].get(jugador, 0)
+        db_store.set_sala(codigo, sala)
+        state_store.set_sala(codigo, sala)
+
+    socketio.emit(
+        "restore_state",
+        {
+            "letra": sala.get("letra", "?"),
+            "ronda": sala.get("ronda_actual", 1),
+            "tiempo_restante": sala.get("tiempo_restante", 0),
+            "basta_activado": sala.get("basta_activado", False),
+            "pausada": sala.get("pausada", False),
+        },
+        room=request.sid,
+    )
+
+    socketio.emit(
+        "player_joined",
+        {
+            "jugadores": sala.get("jugadores", []),
+            "puntuaciones": sala.get("puntuaciones", {}),
+            "jugadores_listos": sala.get("jugadores_listos", []),
+            "jugadores_desconectados": sala.get("jugadores_desconectados", []),
+            "configuracion": {
+                "rondas": sala.get("rondas", 3),
+                "dificultad": sala.get("dificultad", "normal"),
+                "modo_juego": sala.get("modo_juego", "clasico"),
+                "chat_habilitado": sala.get("chat_habilitado", True),
+                "sonidos_habilitados": sala.get("sonidos_habilitados", True),
+                "powerups_habilitados": sala.get("powerups_habilitados", True),
+                "validacion_activa": sala.get("validacion_activa", True)
+            }
+        },
+        room=codigo
+    )
+
+
+@socketio.on("host_is_starting")
+def handle_host_starting(data):
+    """El anfitrión inicia la partida: genera letra y temporizador."""
+    codigo = data.get("codigo")
+    jugador = data.get("jugador")
+
+    if not codigo or not jugador:
+        return
+
+    sala = db_store.get_sala(codigo)
+    if not sala:
+        sala = state_store.get_sala(codigo)
+    if not sala:
+        return
+
+    if sala.get("anfitrion") != jugador:
+        return
+
+    preparar_ronda(codigo, sala)
 
 @socketio.on("player_ready")
 def handle_player_ready(data):
