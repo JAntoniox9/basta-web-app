@@ -425,15 +425,15 @@
                 <h3 class="config-title"><span>⚙️</span> Configuración</h3>
                 <div class="config-item">
                     <span class="label">Dificultad</span>
-                    <span class="value" id="config-dificultad">Normal</span>
+                    <span class="value" id="config-dificultad">{{ configuracion.dificultad|title if configuracion else 'Normal' }}</span>
                 </div>
                 <div class="config-item">
                     <span class="label">Modo</span>
-                    <span class="value" id="config-modo">Clásico</span>
+                    <span class="value" id="config-modo">{{ configuracion.modo_juego|title if configuracion else 'Clásico' }}</span>
                 </div>
                 <div class="config-item">
                     <span class="label">Rondas</span>
-                    <span class="value" id="config-rondas">3</span>
+                    <span class="value" id="config-rondas">{{ configuracion.rondas if configuracion else 3 }}</span>
                 </div>
                 <div style="margin-top: 15px;">
                     <p style="font-size: 0.85em; color: var(--gray); margin-bottom: 8px;">Funciones activas:</p>
@@ -486,6 +486,7 @@
     const codigoActual = "{{ codigo }}";
     const anfitrion = "{{ anfitrion }}";
     const finDelJuego = {{ fin_del_juego|tojson }};
+    const configuracionInicial = {{ configuracion|tojson if configuracion else '{}' }};
     let jugadorActual = localStorage.getItem("jugador");
     let socket = null;
     let esAnfitrion = false;
@@ -682,11 +683,22 @@
             }
         });
 
-        // Cuando la configuración se actualiza
-        socket.on("configuracion_actualizada", (data) => {
-            console.log("Configuración actualizada:", data);
-            actualizarConfiguracion(data);
-            mostrarNotificacion("⚙️ Configuración actualizada");
+    // Cuando la configuración se actualiza
+    socket.on("configuracion_actualizada", (data) => {
+        console.log("Configuración actualizada:", data);
+        actualizarConfiguracion(data);
+        mostrarNotificacion("⚙️ Configuración actualizada");
+    });
+    
+    // Cuando un jugador marca que está listo
+    socket.on("player_ready_update", (data) => {
+        console.log("Jugador listo:", data);
+        jugadoresListos = data.jugadores_listos || [];
+        actualizarBotonListo();
+        actualizarBotonAnfitrion();
+        
+        // Actualizar tabla de jugadores
+        socket.emit("join_room_event", { codigo: codigoActual, jugador: jugadorActual });
     });
 
     // Cuando el anfitrión inicia el juego
@@ -741,6 +753,9 @@
         }
         
         // Cargar configuración de sala
+        if (configuracionInicial && Object.keys(configuracionInicial).length > 0) {
+            actualizarConfiguracion(configuracionInicial);
+        }
         cargarConfiguracionSala();
     }
     

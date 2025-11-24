@@ -119,3 +119,43 @@ def handle_join(data):
             room=codigo
         )
 
+@socketio.on("player_ready")
+def handle_player_ready(data):
+    """Maneja cuando un jugador marca que está listo"""
+    ip = get_client_ip()
+    if not check_rate_limit(request.sid, "player_ready", 1.0):
+        print(f"⚠️ Rate limit exceeded for player_ready from {ip} ({request.sid})")
+        return
+    
+    codigo = data.get("codigo")
+    jugador = data.get("jugador")
+    
+    if not codigo or not jugador:
+        print(f"⚠️ Datos incompletos en player_ready desde IP: {ip}")
+        return
+    
+    sala = state_store.get_sala(codigo)
+    if not sala:
+        print(f"⚠️ Sala {codigo} no encontrada para player_ready desde IP: {ip}")
+        return
+    
+    # Inicializar jugadores_listos si no existe
+    if "jugadores_listos" not in sala:
+        sala["jugadores_listos"] = []
+    
+    # Agregar jugador a la lista de listos si no está
+    if jugador not in sala["jugadores_listos"]:
+        sala["jugadores_listos"].append(jugador)
+        state_store.save()
+        print(f"✅ Jugador {jugador} marcado como listo en sala {codigo} (IP: {ip})")
+    
+    # Notificar a todos en la sala
+    socketio.emit(
+        "player_ready_update",
+        {
+            "jugador": jugador,
+            "jugadores_listos": sala["jugadores_listos"]
+        },
+        room=codigo
+    )
+

@@ -62,6 +62,12 @@ def create_room():
     sala["powerups_habilitados"] = data.get("powerups_habilitados", True)
     sala["validacion_activa"] = data.get("validacion_activa", True)
     
+    # Marcar automáticamente al anfitrión como listo
+    if "jugadores_listos" not in sala:
+        sala["jugadores_listos"] = []
+    if nombre_anfitrion not in sala["jugadores_listos"]:
+        sala["jugadores_listos"].append(nombre_anfitrion)
+    
     # Guardar cambios en la base de datos
     db_store.set_sala(codigo, sala)
     
@@ -116,7 +122,16 @@ def waiting_room(codigo):
         puntuaciones=sala.get("puntuaciones", {}),
         fin_del_juego=sala.get("ronda_actual", 1) > sala.get("rondas", 1),
         jugadores_listos=sala.get("jugadores_listos", []),
-        jugadores_desconectados=sala.get("jugadores_desconectados", [])
+        jugadores_desconectados=sala.get("jugadores_desconectados", []),
+        configuracion={
+            "rondas": sala.get("rondas", 3),
+            "dificultad": sala.get("dificultad", "normal"),
+            "modo_juego": sala.get("modo_juego", "clasico"),
+            "chat_habilitado": sala.get("chat_habilitado", True),
+            "sonidos_habilitados": sala.get("sonidos_habilitados", True),
+            "powerups_habilitados": sala.get("powerups_habilitados", True),
+            "validacion_activa": sala.get("validacion_activa", True)
+        }
     )
 
 @game_bp.route("/game/<codigo>")
