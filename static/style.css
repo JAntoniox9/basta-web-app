@@ -1,0 +1,552 @@
+/* ====================================
+   VARIABLES CSS - Paleta de Colores Moderna
+   ==================================== */
+:root {
+    --primary: #6366f1;
+    --primary-dark: #4f46e5;
+    --primary-light: #818cf8;
+    --secondary: #06b6d4;
+    --secondary-dark: #0891b2;
+    --success: #10b981;
+    --success-dark: #059669;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --dark: #1e293b;
+    --gray: #64748b;
+    --light: #f1f5f9;
+    --white: #ffffff;
+    
+    --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --gradient-4: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    --gradient-purple: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    
+    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.15);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.2);
+    
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+}
+
+/* ====================================
+   RESET Y BASE
+   ==================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    /* Base font-size más conservadora considerando barras del navegador */
+    font-size: clamp(11px, 0.9vw, 14px);
+}
+
+body {
+    font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--gradient-purple);
+    background-attachment: fixed;
+    min-height: 100vh;
+    color: var(--dark);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: clamp(0.4rem, 1.2vw, 0.8rem);
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Efecto de partículas animadas en el fondo */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+    animation: float 20s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        transform: translateY(-20px) scale(1.05);
+    }
+}
+
+/* ====================================
+   CONTENEDOR PRINCIPAL
+   ==================================== */
+.main-container {
+    width: 95%;
+    max-width: min(480px, 90vw);
+    text-align: center;
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ====================================
+   TARJETAS (CARDS) - Glassmorphism
+   ==================================== */
+.card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    padding: clamp(0.7rem, 1.2vw, 1.2rem);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: var(--gradient-1);
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-xl), 0 0 50px rgba(102, 126, 234, 0.3);
+}
+
+/* ====================================
+   TIPOGRAFÍA
+   ==================================== */
+.title {
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    font-weight: 700;
+    background: var(--gradient-1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: clamp(0.25rem, 0.6vw, 0.5rem);
+    animation: slideInDown 0.6s ease-out;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.subtitle {
+    color: var(--gray);
+    font-size: 1em;
+    margin-bottom: 30px;
+    font-weight: 400;
+    animation: fadeIn 0.8s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* ====================================
+   BOTONES MODERNOS
+   ==================================== */
+.btn {
+    display: block;
+    width: 100%;
+    padding: clamp(0.55rem, 1vw, 0.85rem) clamp(0.9rem, 1.3vw, 1.2rem);
+    margin: clamp(0.35rem, 0.6vw, 0.7rem) 0;
+    text-decoration: none;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: clamp(0.85rem, 1vw, 1rem);
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    color: var(--white);
+    box-shadow: var(--shadow-md);
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+/* Botón Anfitrión - Gradiente Verde/Azul */
+.btn-host {
+    background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+}
+
+.btn-host:hover {
+    background: linear-gradient(135deg, #059669 0%, #0891b2 100%);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+    transform: translateY(-2px);
+}
+
+/* Botón Jugador - Gradiente Azul/Púrpura */
+.btn-join {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+}
+
+.btn-join:hover {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+    transform: translateY(-2px);
+}
+
+/* Botón Admin - Gradiente Naranja/Rojo */
+.btn-admin {
+    background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+}
+
+.btn-admin:hover {
+    background: linear-gradient(135deg, #d97706 0%, #dc2626 100%);
+    box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+    transform: translateY(-2px);
+}
+
+/* Botón deshabilitado */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.btn:disabled:hover {
+    box-shadow: var(--shadow-md);
+}
+
+/* Botón de peligro */
+.btn-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+}
+
+/* Botón secundario */
+.btn-secondary {
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #475569 0%, #334155 100%);
+}
+
+/* ====================================
+   FORMULARIOS MODERNOS
+   ==================================== */
+.form-container {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.5rem, 1vw, 1rem);
+}
+
+.form-container label {
+    font-size: clamp(0.75rem, 0.85vw, 0.9rem);
+    color: var(--dark);
+    font-weight: 600;
+    text-align: left;
+    margin-bottom: -0.4rem;
+}
+
+.form-container input[type="text"],
+.form-container input[type="number"],
+.form-container select {
+    width: 100%;
+    padding: clamp(0.45rem, 0.8vw, 0.7rem) clamp(0.65rem, 1vw, 0.9rem);
+    border: 2px solid var(--light);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: clamp(0.8rem, 0.9vw, 0.95rem);
+    transition: all 0.3s ease;
+    background: var(--white);
+    color: var(--dark);
+}
+
+.form-container input:focus,
+.form-container select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    transform: translateY(-2px);
+}
+
+.form-container input::placeholder {
+    color: var(--gray);
+    opacity: 0.6;
+}
+
+/* ====================================
+   ENLACES
+   ==================================== */
+.link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.link::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--primary);
+    transition: width 0.3s ease;
+}
+
+.link:hover::after {
+    width: 100%;
+}
+
+.link:hover {
+    color: var(--primary-dark);
+}
+
+/* ====================================
+   TABLA DE PUNTUACIONES
+   ==================================== */
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+thead th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--dark);
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+tbody tr {
+    background: var(--white);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+}
+
+tbody tr:hover {
+    transform: translateX(5px);
+    box-shadow: var(--shadow-md);
+}
+
+tbody td {
+    padding: 14px;
+    border: none;
+}
+
+tbody tr td:first-child {
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+tbody tr td:last-child {
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+/* ====================================
+   BADGES Y ETIQUETAS
+   ==================================== */
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+    background: var(--gradient-1);
+    color: var(--white);
+    margin-left: 8px;
+}
+
+.badge-success {
+    background: var(--success);
+}
+
+.badge-warning {
+    background: var(--warning);
+}
+
+/* ====================================
+   ANIMACIONES Y UTILIDADES
+   ==================================== */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.bounce {
+    animation: bounce 1s ease-in-out infinite;
+}
+
+/* ====================================
+   RESPONSIVE
+   ==================================== */
+
+/* Tablets y pantallas medianas */
+@media (max-width: 768px) {
+    body {
+        padding: 15px;
+    }
+    
+    .card {
+        padding: 25px 20px;
+    }
+    
+    .title {
+        font-size: 1.9em;
+    }
+}
+
+/* Móviles */
+@media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+    
+    .card {
+        padding: 20px 15px;
+    }
+    
+    .title {
+        font-size: 1.6em;
+    }
+    
+    .btn {
+        padding: 12px 18px;
+        font-size: 0.95em;
+    }
+}
+
+/* Móviles pequeños */
+@media (max-width: 400px) {
+    .card {
+        padding: 15px 12px;
+    }
+    
+    .title {
+        font-size: 1.4em;
+    }
+}
+
+/* ====================================
+   MODO OSCURO (Opcional - Para futuro)
+   ==================================== */
+@media (prefers-color-scheme: dark) {
+    /* Se puede implementar después */
+}
+
+/* ====================================
+   EFECTOS ESPECIALES
+   ==================================== */
+.glow {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.5),
+                0 0 40px rgba(99, 102, 241, 0.3),
+                0 0 60px rgba(99, 102, 241, 0.1);
+}
+
+.shimmer {
+    background: linear-gradient(90deg, 
+        rgba(255,255,255,0) 0%, 
+        rgba(255,255,255,0.3) 50%, 
+        rgba(255,255,255,0) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}

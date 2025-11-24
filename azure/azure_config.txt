@@ -1,0 +1,24 @@
+# Configuración de Azure - Basta Web
+# Creado: Sun Nov 23 06:14:56     2025
+
+Resource Group: basta-web-rg
+Ubicación: mexicocentral
+Base de datos: basta-web-db-13212
+Web App: basta-web-app-554
+URL: https://basta-web-app-554.azurewebsites.net
+
+DATABASE_URL=postgresql://bastaadmin:BastaPassword2025!@basta-web-db-13212.postgres.database.azure.com:5432/basta_db?sslmode=require
+
+Comandos útiles:
+
+# Ver logs
+az webapp log tail --resource-group basta-web-rg --name basta-web-app-554
+
+# Reiniciar app
+az webapp restart --resource-group basta-web-rg --name basta-web-app-554
+
+# Ver costos
+az consumption usage list --output table
+
+# Eliminar todo
+az group delete --name basta-web-rg --yes

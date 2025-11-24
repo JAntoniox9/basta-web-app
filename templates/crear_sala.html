@@ -1,0 +1,519 @@
+N<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Crear Sala - Basta Web</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .main-container {
+            max-width: min(480px, 90vw);
+            width: 95%;
+        }
+        
+        .config-section {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border-left: 3px solid var(--primary);
+            padding: clamp(0.45rem, 1vw, 0.7rem);
+            border-radius: var(--radius-md);
+            margin: clamp(0.25rem, 0.6vw, 0.5rem) 0;
+        }
+        
+        .config-section h3 {
+            font-size: clamp(0.8rem, 1vw, 0.95rem);
+            color: var(--dark);
+            margin-bottom: clamp(0.25rem, 0.5vw, 0.4rem);
+            display: flex;
+            align-items: center;
+            gap: clamp(0.25rem, 0.5vw, 0.4rem);
+        }
+        
+        .difficulty-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: clamp(0.25rem, 0.6vw, 0.5rem);
+            margin: clamp(0.25rem, 0.6vw, 0.4rem) 0;
+        }
+        
+        .difficulty-card {
+            display: none;
+        }
+        
+        .difficulty-label {
+            display: block;
+            padding: clamp(0.35rem, 0.8vw, 0.7rem) clamp(0.2rem, 0.5vw, 0.4rem);
+            text-align: center;
+            border: 2px solid var(--light);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .difficulty-card:checked + .difficulty-label {
+            background: var(--gradient-1);
+            color: white;
+            border-color: var(--primary);
+            transform: scale(1.02);
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+        }
+        
+        .difficulty-label:hover {
+            border-color: var(--primary);
+        }
+        
+        .difficulty-label .icon {
+            font-size: clamp(0.95rem, 1.3vw, 1.2em);
+            display: block;
+            margin-bottom: clamp(0.12rem, 0.3vw, 0.25rem);
+        }
+        
+        .difficulty-label .name {
+            font-weight: 600;
+            font-size: clamp(0.7rem, 0.85vw, 0.85rem);
+            display: block;
+        }
+        
+        .difficulty-label .time {
+            font-size: clamp(0.6rem, 0.75vw, 0.75rem);
+            opacity: 0.8;
+            display: block;
+            margin-top: clamp(0.08rem, 0.25vw, 0.2rem);
+        }
+        
+        .mode-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(95px, 100%), 1fr));
+            gap: clamp(0.25rem, 0.6vw, 0.5rem);
+            margin: clamp(0.25rem, 0.6vw, 0.4rem) 0;
+        }
+        
+        .mode-card {
+            display: none;
+        }
+        
+        .mode-label {
+            display: block;
+            padding: clamp(0.35rem, 0.8vw, 0.7rem) clamp(0.2rem, 0.5vw, 0.4rem);
+            text-align: center;
+            border: 2px solid var(--light);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+            font-size: clamp(0.7rem, 0.85vw, 0.85rem);
+        }
+        
+        .mode-card:checked + .mode-label {
+            background: var(--gradient-3);
+            color: white;
+            border-color: var(--secondary);
+            box-shadow: 0 2px 10px rgba(6, 182, 212, 0.3);
+        }
+        
+        .mode-label .icon {
+            font-size: clamp(0.95rem, 1.3vw, 1.3em);
+            display: block;
+            margin-bottom: clamp(0.12rem, 0.3vw, 0.25rem);
+        }
+        
+        .categories-selector {
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+            background: white;
+            border-radius: var(--radius-md);
+            border: 2px solid var(--light);
+        }
+        
+        .category-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.03) 0%, rgba(139, 92, 246, 0.03) 100%);
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+        
+        .category-item:hover {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+        }
+        
+        .category-item input[type="checkbox"] {
+            margin-right: 12px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .category-item .icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+        
+        .category-item .name {
+            flex: 1;
+            font-weight: 500;
+        }
+        
+        .category-item .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+        
+        .badge-facil { background: #10b981; color: white; }
+        .badge-normal { background: #3b82f6; color: white; }
+        .badge-dificil { background: #f59e0b; color: white; }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background: var(--gradient-1);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .feature-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border-radius: var(--radius-md);
+            margin: 10px 0;
+            border: 2px solid var(--light);
+        }
+        
+        .feature-row:hover {
+            border-color: var(--primary);
+        }
+        
+        .feature-info {
+            flex: 1;
+        }
+        
+        .feature-info .title {
+            font-weight: 600;
+            color: var(--dark);
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .feature-info .description {
+            font-size: 0.85em;
+            color: var(--gray);
+        }
+        
+        @media (max-width: 768px) {
+            .difficulty-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="main-container">
+        <section class="card">
+            <div class="form-header" style="text-align: center; margin-bottom: 30px;">
+                <span class="icon-header" style="font-size: 3em; display: block; margin-bottom: 15px;">👑</span>
+                <h2 style="font-size: 1.8em; font-weight: 700; color: var(--dark); margin-bottom: 10px;">Configurar Nueva Sala</h2>
+                <p style="color: var(--gray); font-size: 0.95em;">Personaliza tu partida con opciones avanzadas</p>
+            </div>
+            
+            <form id="crear-form" class="form-container">
+                <!-- Información básica -->
+                <div class="input-group" style="position: relative; margin-bottom: 20px;">
+                    <label for="nombre">Tu Nombre (Anfitrión)</label>
+                    <input type="text" 
+                           id="nombre" 
+                           placeholder="Escribe tu nombre" 
+                           required
+                           maxlength="20"
+                           autocomplete="off">
+                </div>
+                
+                <!-- Dificultad -->
+                <div class="config-section">
+                    <h3><span>🎯</span>Dificultad</h3>
+                    <div class="difficulty-grid">
+                        <input type="radio" id="dif-facil" name="dificultad" value="facil" class="difficulty-card">
+                        <label for="dif-facil" class="difficulty-label">
+                            <span class="icon">😊</span>
+                            <span class="name">Fácil</span>
+                            <span class="time">240 seg</span>
+                        </label>
+                        
+                        <input type="radio" id="dif-normal" name="dificultad" value="normal" class="difficulty-card" checked>
+                        <label for="dif-normal" class="difficulty-label">
+                            <span class="icon">🎯</span>
+                            <span class="name">Normal</span>
+                            <span class="time">180 seg</span>
+                        </label>
+                        
+                        <input type="radio" id="dif-dificil" name="dificultad" value="dificil" class="difficulty-card">
+                        <label for="dif-dificil" class="difficulty-label">
+                            <span class="icon">💪</span>
+                            <span class="name">Difícil</span>
+                            <span class="time">120 seg</span>
+                        </label>
+                        
+                        <input type="radio" id="dif-extremo" name="dificultad" value="extremo" class="difficulty-card">
+                        <label for="dif-extremo" class="difficulty-label">
+                            <span class="icon">🔥</span>
+                            <span class="name">Extremo</span>
+                            <span class="time">90 seg</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Modo de Juego -->
+                <div class="config-section">
+                    <h3><span>🎮</span>Modo de Juego</h3>
+                    <div class="mode-grid">
+                        <input type="radio" id="modo-clasico" name="modo_juego" value="clasico" class="mode-card" checked>
+                        <label for="modo-clasico" class="mode-label">
+                            <span class="icon">🎯</span>
+                            <span>Clásico</span>
+                        </label>
+                        
+                        <input type="radio" id="modo-rapido" name="modo_juego" value="rapido" class="mode-card">
+                        <label for="modo-rapido" class="mode-label">
+                            <span class="icon">⚡</span>
+                            <span>Rápido</span>
+                        </label>
+                        
+                        <input type="radio" id="modo-equipos" name="modo_juego" value="equipos" class="mode-card">
+                        <label for="modo-equipos" class="mode-label">
+                            <span class="icon">🤝</span>
+                            <span>Equipos</span>
+                        </label>
+                        
+                        <input type="radio" id="modo-duelo" name="modo_juego" value="duelo" class="mode-card">
+                        <label for="modo-duelo" class="mode-label">
+                            <span class="icon">⚔️</span>
+                            <span>Duelo</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Número de Rondas -->
+                <label>Número de Rondas</label>
+                <div class="rounds-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: clamp(0.25rem, 0.6vw, 0.5rem); margin: clamp(0.25rem, 0.6vw, 0.4rem) 0;">
+                    <input type="radio" id="round-1" name="rondas" value="1" class="round-option">
+                    <label for="round-1" class="round-label" style="display: block; padding: clamp(0.35rem, 0.8vw, 0.7rem) clamp(0.2rem, 0.5vw, 0.4rem); text-align: center; border: 2px solid var(--light); border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s ease; font-weight: 600; font-size: clamp(0.75rem, 0.9vw, 0.9rem); background: var(--white);">1</label>
+                    
+                    <input type="radio" id="round-2" name="rondas" value="2" class="round-option">
+                    <label for="round-2" class="round-label" style="display: block; padding: clamp(0.35rem, 0.8vw, 0.7rem) clamp(0.2rem, 0.5vw, 0.4rem); text-align: center; border: 2px solid var(--light); border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s ease; font-weight: 600; font-size: clamp(0.75rem, 0.9vw, 0.9rem); background: var(--white);">2</label>
+                    
+                    <input type="radio" id="round-3" name="rondas" value="3" class="round-option" checked>
+                    <label for="round-3" class="round-label" style="display: block; padding: clamp(0.35rem, 0.8vw, 0.7rem) clamp(0.2rem, 0.5vw, 0.4rem); text-align: center; border: 2px solid var(--light); border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s ease; font-weight: 600; font-size: clamp(0.75rem, 0.9vw, 0.9rem); background: var(--white);">3</label>
+                    
+                    <input type="radio" id="round-4" name="rondas" value="4" class="round-option">
+                    <label for="round-4" class="round-label" style="display: block; padding: clamp(0.35rem, 0.8vw, 0.7rem) clamp(0.2rem, 0.5vw, 0.4rem); text-align: center; border: 2px solid var(--light); border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s ease; font-weight: 600; font-size: clamp(0.75rem, 0.9vw, 0.9rem); background: var(--white);">4</label>
+                    
+                    <input type="radio" id="round-5" name="rondas" value="5" class="round-option">
+                    <label for="round-5" class="round-label" style="display: block; padding: clamp(0.35rem, 0.8vw, 0.7rem) clamp(0.2rem, 0.5vw, 0.4rem); text-align: center; border: 2px solid var(--light); border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s ease; font-weight: 600; font-size: clamp(0.75rem, 0.9vw, 0.9rem); background: var(--white);">5</label>
+                </div>
+                
+                <button type="submit" class="btn btn-host" id="submit-btn">
+                    <span class="loading-spinner" style="display: none; margin-right: 10px; width: 20px; height: 20px; border: 3px solid rgba(255, 255, 255, 0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite;"></span>
+                    <span class="btn-text">Crear Sala</span>
+                </button>
+            </form>
+            
+            <p style="margin-top: 20px; text-align: center;">
+                <a href="/" class="link">← Volver al inicio</a>
+            </p>
+        </section>
+    </main>
+
+    <script>
+    const form = document.getElementById("crear-form");
+    const submitBtn = document.getElementById("submit-btn");
+    const btnText = submitBtn.querySelector('.btn-text');
+    const loadingSpinner = submitBtn.querySelector('.loading-spinner');
+    
+    // Estilos para round-option
+    document.querySelectorAll('.round-option').forEach(radio => {
+        radio.style.display = 'none';
+    });
+    
+    document.querySelectorAll('.round-label').forEach(label => {
+        label.addEventListener('click', function() {
+            document.querySelectorAll('.round-label').forEach(l => {
+                l.style.background = 'white';
+                l.style.color = 'var(--dark)';
+                l.style.borderColor = 'var(--light)';
+                l.style.transform = 'scale(1)';
+                l.style.boxShadow = 'none';
+            });
+            
+            this.style.background = 'var(--gradient-1)';
+            this.style.color = 'white';
+            this.style.borderColor = 'var(--primary)';
+            this.style.transform = 'scale(1.05)';
+            this.style.boxShadow = '0 4px 15px rgba(99, 102, 241, 0.3)';
+        });
+    });
+    
+    // Inicializar ronda seleccionada
+    const selectedRound = document.querySelector('.round-option:checked').id;
+    document.querySelector(`label[for="${selectedRound}"]`).click();
+    
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const nombre = document.getElementById("nombre").value.trim();
+        
+        if (!nombre) {
+            mostrarAlerta("⚠️ Por favor ingresa un nombre válido.", "warning");
+            return;
+        }
+        
+        // Recopilar configuración
+        const config = {
+            nombre: nombre,
+            dificultad: document.querySelector('input[name="dificultad"]:checked').value,
+            modo_juego: document.querySelector('input[name="modo_juego"]:checked').value,
+            rondas: parseInt(document.querySelector('input[name="rondas"]:checked').value),
+            // Todas las funcionalidades activadas por defecto (controladas desde Super Admin)
+            chat_habilitado: true,
+            powerups_habilitados: true,
+            sonidos_habilitados: true,
+            validacion_activa: true
+        };
+        
+        console.log("Configuración de sala:", config);
+        
+        // Mostrar carga
+        submitBtn.classList.add('loading');
+        loadingSpinner.style.display = 'inline-block';
+        btnText.textContent = 'Creando sala...';
+        
+        try {
+        const res = await fetch("/create", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(config),
+        });
+        
+        const data = await res.json();
+        
+        if (data.ok) {
+            localStorage.setItem("jugador", nombre);
+            localStorage.setItem("codigo", data.codigo);
+                
+                btnText.textContent = '✓ ¡Sala creada!';
+                
+                setTimeout(() => {
+            window.location.href = `/waiting/${data.codigo}`;
+                }, 500);
+        } else {
+                throw new Error(data.error || "Error desconocido");
+            }
+        } catch (error) {
+            submitBtn.classList.remove('loading');
+            loadingSpinner.style.display = 'none';
+            btnText.textContent = 'Crear Sala';
+            mostrarAlerta(`❌ Error al crear la sala: ${error.message}`, "error");
+        }
+    });
+    
+    function mostrarAlerta(mensaje, tipo) {
+        const alerta = document.createElement('div');
+        alerta.textContent = mensaje;
+        alerta.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px 24px;
+            background: ${tipo === 'error' ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'};
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            font-weight: 600;
+            animation: slideDown 0.3s ease-out;
+        `;
+        
+        document.body.appendChild(alerta);
+        
+        setTimeout(() => {
+            alerta.style.animation = 'slideUp 0.3s ease-out';
+            setTimeout(() => alerta.remove(), 300);
+        }, 3000);
+    }
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -20px);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+            to {
+                opacity: 0;
+                transform: translate(-50%, -20px);
+            }
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
+    </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partida Finalizada - Basta Web</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .finalizada-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .finalizada-card {
+            background: white;
+            padding: clamp(30px, 5vw, 50px);
+            border-radius: 24px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        }
+        .finalizada-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+        }
+        .finalizada-title {
+            font-size: clamp(1.8em, 4vw, 2.5em);
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 15px;
+        }
+        .finalizada-message {
+            color: var(--gray);
+            font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+            margin-bottom: 30px;
+        }
+        .btn-home {
+            display: inline-block;
+            padding: 16px 32px;
+            background: var(--gradient-1);
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn-home:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="finalizada-container">
+        <div class="finalizada-card">
+            <div class="finalizada-icon">🏁</div>
+            <h1 class="finalizada-title">Partida Finalizada</h1>
+            <p class="finalizada-message">
+                Esta partida ya ha terminado. No puedes unirte a una partida que ya finalizó.
+            </p>
+            <a href="/" class="btn-home">🏠 Volver al Menú Principal</a>
+        </div>
+    </div>
+</body>
+</html>
+

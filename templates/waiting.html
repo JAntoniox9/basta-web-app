@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sala de Espera - Basta Web</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/3.1.3/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='sounds.js') }}"></script>
+    <style>
+        body {
+            align-items: flex-start;
+            padding-top: clamp(10px, 1.5vw, 20px);
+        }
+        
+        .waiting-layout {
+            display: grid;
+            grid-template-columns: 1fr clamp(280px, 25vw, 350px);
+            gap: clamp(12px, 1.5vw, 20px);
+            max-width: min(950px, 95vw);
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .main-panel {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(12px, 1.5vw, 20px);
+        }
+        
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(12px, 1.5vw, 20px);
+        }
+        
+        .card {
+            position: relative;
+        }
+        
+        /* Chat en tiempo real */
+        .chat-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: clamp(280px, 28vw, 350px);
+        }
+        
+        .chat-header {
+            background: var(--gradient-1);
+            color: white;
+            padding: clamp(8px, 1vw, 10px) clamp(12px, 1.5vw, 15px);
+            font-weight: 600;
+            font-size: clamp(0.85em, 1vw, 0.9em);
+            display: flex;
+            align-items: center;
+            gap: clamp(6px, 0.8vw, 8px);
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: clamp(10px, 1.2vw, 12px);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(6px, 0.8vw, 8px);
+        }
+        
+        .chat-message {
+            padding: clamp(6px, 0.8vw, 8px) clamp(8px, 1vw, 10px);
+            border-radius: var(--radius-md);
+            font-size: clamp(0.85em, 1vw, 0.9em);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            animation: slideInLeft 0.3s ease-out;
+        }
+        
+        .chat-message .author {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: clamp(0.85em, 1vw, 0.9em);
+            margin-bottom: clamp(3px, 0.4vw, 4px);
+        }
+        
+        .chat-message .text {
+            color: var(--dark);
+            word-wrap: break-word;
+        }
+        
+        .chat-message.own {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+            margin-left: auto;
+            max-width: 80%;
+        }
+        
+        .chat-message.own .author {
+            color: var(--success);
+        }
+        
+        .chat-input-container {
+            padding: 15px;
+            border-top: 1px solid var(--light);
+            background: white;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 2px solid var(--light);
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 0.95em;
+            transition: all 0.3s ease;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+        
+        .chat-send-btn {
+            padding: 10px 20px;
+            background: var(--gradient-1);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .chat-send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        
+        /* Configuración de la sala */
+        .sala-config {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 20px;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .config-title {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border-radius: var(--radius-sm);
+        }
+        
+        .config-item .label {
+            font-size: 0.9em;
+            color: var(--gray);
+        }
+        
+        .config-item .value {
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .feature-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--gradient-4);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin: 3px;
+        }
+        
+        .feature-badge.disabled {
+            background: #cbd5e1;
+        }
+        
+        /* Responsive - Solo para móviles/tablets pequeñas */
+        @media (max-width: 768px) {
+            .waiting-layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .side-panel {
+                order: -1; /* Mover panel lateral arriba en móviles */
+            }
+            
+            .chat-container {
+                height: 300px;
+            }
+        }
+        
+        /* Modal estilos (ya existentes pero mejorados) */
+        #modal-nombre {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        #modal-nombre.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: var(--radius-xl);
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideInUp 0.4s ease-out;
+        }
+        
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-content h3 {
+            font-size: 1.8em;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .modal-content p {
+            text-align: center;
+            color: var(--gray);
+            margin-bottom: 25px;
+        }
+        
+        .modal-content input {
+            width: 100%;
+            padding: 16px;
+            margin: 15px 0;
+            border: 2px solid var(--light);
+            border-radius: var(--radius-md);
+            font-size: 1em;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-content input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+        
+        .modal-content button {
+            width: 100%;
+            padding: 16px;
+            background: var(--gradient-1);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-content button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes shakeError {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Modal para ingresar nombre -->
+    <div id="modal-nombre">
+        <div class="modal-content">
+            <h3>🎮 Unirse a la Sala</h3>
+            <p>Ingresa tu nombre para unirte a esta partida</p>
+            <form id="form-nombre-modal">
+                <input type="text" 
+                       id="input-nombre-modal" 
+                       placeholder="Tu nombre" 
+                       required 
+                       autofocus
+                       maxlength="20">
+                <button type="submit">Entrar a la Sala</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="waiting-layout">
+        <!-- Panel Principal -->
+        <div class="main-panel">
+        <section class="card">
+                <div class="room-header" style="text-align: center; margin-bottom: 25px;">
+                    <span style="font-size: 2.5em; display: block; margin-bottom: 10px; animation: pulse 2s ease-in-out infinite;">🎲</span>
+                    <h2 class="subtitle" style="font-size: 1.5em; font-weight: 700; color: var(--dark);">Sala de Espera</h2>
+                </div>
+                
+                <div class="room-info" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); padding: 20px; border-radius: var(--radius-lg); margin-bottom: 25px; border: 2px solid rgba(99, 102, 241, 0.2);">
+                    <p style="margin: 0; color: var(--gray); font-size: 0.9em;">
+                        <strong style="color: var(--dark);">Anfitrión:</strong> 
+                        {{ anfitrion }}
+                        <span class="host-badge" style="display: inline-block; padding: 6px 14px; background: var(--gradient-4); color: white; border-radius: 20px; font-size: 0.85em; font-weight: 600; margin-left: 8px;">👑 Host</span>
+                    </p>
+                    
+                    <div class="room-code-display" style="text-align: center; margin: 15px 0;">
+                        <span class="code-label" style="font-size: 0.9em; color: var(--gray); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">Código de Sala</span>
+                        <div class="code-value" id="codigo-sala" onclick="copiarCodigo()" style="font-size: 2.5em; font-weight: 700; letter-spacing: 5px; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; display: inline-block; cursor: pointer; transition: all 0.3s ease;">{{ codigo }}</div>
+                    </div>
+                    
+                    <p style="text-align: center; font-size: 0.85em; color: var(--gray); margin-top: 15px; margin-bottom: 0;">
+                        📋 Click para copiar
+                    </p>
+            </div>
+
+                <div class="scores-section" style="margin: 25px 0;">
+                    <h3 class="section-title" style="font-size: 1.2em; font-weight: 700; color: var(--dark); margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                        <span>🏆</span>
+                        Jugadores
+                    </h3>
+                    <table id="tabla-puntuaciones" style="width: 100%; border-collapse: separate; border-spacing: 0 10px;">
+                <thead>
+                    <tr>
+                                <th style="padding: 10px 15px; text-align: left; font-weight: 600; color: var(--dark); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">Jugador</th>
+                                <th style="padding: 10px 15px; text-align: right; font-weight: 600; color: var(--dark); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">Puntos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for j, s in puntuaciones.items() %}
+                            {% set es_desconectado = j in (jugadores_desconectados or []) %}
+                            <tr style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%); border-radius: var(--radius-md); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.3s ease; animation: slideInLeft 0.4s ease-out backwards; animation-delay: {{ loop.index0 * 0.1 }}s; {% if es_desconectado %}opacity: 0.6;{% endif %}">
+                                <td style="padding: 16px 15px; border: none; border-radius: var(--radius-md) 0 0 var(--radius-md); font-weight: 600; {% if es_desconectado %}color: #6b7280;{% else %}color: #3b82f6;{% endif %}" data-jugador="{{ j }}">
+                                    {{ j }}
+                                    {% if es_desconectado %}
+                                    <span class="player-status" style="display: inline-block; padding: 4px 10px; background: #9ca3af; color: white; border-radius: 12px; font-size: 0.75em; font-weight: 600; margin-left: 8px; animation: fadeIn 0.3s ease;">Salió</span>
+                                    {% elif j in jugadores_listos %}
+                                    <span class="player-status" style="display: inline-block; padding: 4px 10px; background: var(--success); color: white; border-radius: 12px; font-size: 0.75em; font-weight: 600; margin-left: 8px; animation: fadeIn 0.3s ease;">✓ Listo</span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 16px 15px; border: none; border-radius: 0 var(--radius-md) var(--radius-md) 0; font-weight: 700; {% if es_desconectado %}color: #6b7280;{% else %}color: var(--primary);{% endif %} font-size: 1.1em; text-align: right;">{{ s }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+                </div>
+                
+                <div id="waiting-indicator" style="display: none; text-align: center; padding: 15px; background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(251, 146, 60, 0.1) 100%); border-radius: var(--radius-md); margin: 20px 0; border-left: 4px solid var(--warning);">
+                    <span class="spinner" style="display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(245, 158, 11, 0.3); border-top-color: var(--warning); border-radius: 50%; animation: spin 1s linear infinite; margin-right: 10px; vertical-align: middle;"></span>
+                    <span id="waiting-text">Esperando jugadores...</span>
+                </div>
+                
+                <p id="error-mensaje" style="color: var(--danger); font-weight: 600; display: none; text-align: center; margin: 15px 0;"></p>
+
+                <button id="btn-iniciar" class="btn btn-host" disabled style="margin-top: 20px; font-size: 1.05em; padding: 18px;">
+                    <span class="btn-icon" style="margin-right: 8px;">⏱️</span>
+                    Esperando jugadores...
+            </button>
+            
+                <button id="btn-ready" class="btn btn-join" style="display: none; margin-top: 20px; font-size: 1.05em; padding: 18px;">
+                    <span class="btn-icon" style="margin-right: 8px;">✓</span>
+                ¡Estoy Listo!
+            </button>
+            
+                <p style="text-align: center; margin-top: 20px;">
+                    <a href="/" class="link">← Volver al Menú Principal</a>
+                </p>
+            </section>
+        </div>
+
+        <!-- Panel Lateral -->
+        <div class="side-panel">
+            <!-- Configuración de la Sala -->
+            <div class="sala-config">
+                <h3 class="config-title"><span>⚙️</span> Configuración</h3>
+                <div class="config-item">
+                    <span class="label">Dificultad</span>
+                    <span class="value" id="config-dificultad">Normal</span>
+                </div>
+                <div class="config-item">
+                    <span class="label">Modo</span>
+                    <span class="value" id="config-modo">Clásico</span>
+                </div>
+                <div class="config-item">
+                    <span class="label">Rondas</span>
+                    <span class="value" id="config-rondas">3</span>
+                </div>
+                <div style="margin-top: 15px;">
+                    <p style="font-size: 0.85em; color: var(--gray); margin-bottom: 8px;">Funciones activas:</p>
+                    <div id="features-container">
+                        <!-- Se llenará dinámicamente -->
+                    </div>
+                </div>
+                
+                <!-- Control de sonidos -->
+                <div style="margin-top: 15px; padding: 12px; background: white; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.9em; color: var(--dark); font-weight: 600;">🔊 Sonidos</span>
+                    <label style="cursor: pointer;">
+                        <input type="checkbox" id="sound-toggle" checked style="width: 20px; height: 20px; cursor: pointer;">
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Equipos (si modo equipos está activo) -->
+            <div id="equipos-panel" style="display: none;" class="sala-config">
+                <h3 class="config-title"><span>⚽</span> Equipos</h3>
+                <div id="equipos-container">
+                    <!-- Se llenará cuando se creen equipos -->
+                </div>
+            </div>
+
+            <!-- Chat en Tiempo Real -->
+            <div class="chat-container" id="chat-container">
+                <div class="chat-header">
+                    <span>💬</span>
+                    Chat
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div style="text-align: center; color: var(--gray); font-size: 0.9em; padding: 20px;">
+                        Comienza la conversación...
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <input type="text" 
+                           id="chat-input" 
+                           class="chat-input" 
+                           placeholder="Escribe un mensaje..."
+                           maxlength="200">
+                    <button id="chat-send" class="chat-send-btn">Enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const codigoActual = "{{ codigo }}";
+    const anfitrion = "{{ anfitrion }}";
+    const finDelJuego = {{ fin_del_juego|tojson }};
+    let jugadorActual = localStorage.getItem("jugador");
+    let socket = null;
+    let esAnfitrion = false;
+    let chatHabilitado = true;
+    let isNavigatingToGame = false;
+    
+    // Validar si el jugador tiene un nombre válido
+    function validarJugador() {
+        return jugadorActual && 
+               jugadorActual !== "null" && 
+               jugadorActual !== "undefined" && 
+               String(jugadorActual).trim() !== "";
+    }
+    
+    // Referencias a elementos del DOM
+    const tablaPuntuaciones = document.getElementById("tabla-puntuaciones").getElementsByTagName('tbody')[0];
+    const btnIniciar = document.getElementById("btn-iniciar");
+    const btnReady = document.getElementById("btn-ready");
+    const errorMensaje = document.getElementById("error-mensaje");
+    const waitingIndicator = document.getElementById("waiting-indicator");
+    const waitingText = document.getElementById("waiting-text");
+    const chatMessages = document.getElementById("chat-messages");
+    const chatInput = document.getElementById("chat-input");
+    const chatSend = document.getElementById("chat-send");
+    const chatContainer = document.getElementById("chat-container");
+    
+    let totalJugadores = {{ jugadores|length }};
+    let jugadoresListos = {{ jugadores_listos|tojson }};
+    
+    // Función para copiar código
+    function copiarCodigo() {
+        navigator.clipboard.writeText(codigoActual).then(() => {
+            mostrarNotificacion('✓ Código copiado al portapapeles');
+        });
+    }
+    
+    function mostrarNotificacion(mensaje) {
+        const notif = document.createElement('div');
+        notif.textContent = mensaje;
+        notif.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background: var(--gradient-4);
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            font-weight: 600;
+            animation: slideDown 0.3s ease-out;
+        `;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 2000);
+    }
+    
+    // Sistema de Chat
+    function agregarMensajeChat(jugador, mensaje, esPropio = false, tipo = "usuario") {
+        const msgDiv = document.createElement('div');
+        
+        // Aplicar clases según el tipo de mensaje
+        if (tipo === "sistema_moderacion") {
+            msgDiv.className = 'chat-message sistema-moderacion';
+            msgDiv.style.cssText = `
+                background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important;
+                border: 2px solid #c0392b !important;
+                color: white !important;
+                font-weight: 600 !important;
+                animation: shakeError 0.5s ease-in-out !important;
+            `;
+        } else {
+            msgDiv.className = 'chat-message' + (esPropio ? ' own' : '');
+        }
+        
+        msgDiv.innerHTML = `
+            <div class="author" style="${tipo === 'sistema_moderacion' ? 'color: #fff !important; font-weight: 700;' : ''}">${jugador}</div>
+            <div class="text" style="${tipo === 'sistema_moderacion' ? 'color: #fff !important;' : ''}">${mensaje}</div>
+        `;
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Limpiar placeholder si existe
+        const placeholder = chatMessages.querySelector('div[style*="text-align: center"]');
+        if (placeholder) placeholder.remove();
+    }
+    
+    function enviarMensaje() {
+        const mensaje = chatInput.value.trim();
+        if (!mensaje || !socket || !chatHabilitado) return;
+        
+        socket.emit("enviar_mensaje_chat", {
+            codigo: codigoActual,
+            jugador: jugadorActual,
+            mensaje: mensaje
+        });
+        
+        chatInput.value = '';
+    }
+    
+    chatSend.addEventListener("click", enviarMensaje);
+    chatInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") enviarMensaje();
+    });
+    
+    // Inicializar la conexión y la sala
+    function inicializarSala() {
+        socket = io();
+        esAnfitrion = (jugadorActual === anfitrion);
+
+    // Enviar unión a la sala
+    socket.on("connect", () => {
+        socket.emit("join_room_event", { codigo: codigoActual, jugador: jugadorActual });
+    });
+
+    // Actualizar lista de jugadores y puntuaciones en tiempo real
+    socket.on("player_joined", data => {
+            // Reproducir sonido de jugador uniéndose
+            if (typeof soundSystem !== 'undefined' && chatHabilitado) {
+                soundSystem.playJoin();
+            }
+            
+            tablaPuntuaciones.innerHTML = "";
+        
+        totalJugadores = data.jugadores.length;
+        jugadoresListos = data.jugadores_listos || [];
+        const jugadoresDesconectados = data.jugadores_desconectados || [];
+            
+            // Obtener configuración de la sala si está disponible
+            if (data.configuracion) {
+                actualizarConfiguracion(data.configuracion);
+            }
+        
+        const jugadoresOrdenados = Object.entries(data.puntuaciones)
+            .sort(([, a], [, b]) => b - a);
+        
+            let index = 0;
+        for (const [jugador, score] of jugadoresOrdenados) {
+            const esDesconectado = jugadoresDesconectados.includes(jugador);
+            const tr = document.createElement("tr");
+                tr.style.cssText = `
+                    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+                    border-radius: var(--radius-md);
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                    transition: all 0.3s ease;
+                    animation: slideInLeft 0.4s ease-out backwards;
+                    animation-delay: ${index * 0.1}s;
+                    ${esDesconectado ? 'opacity: 0.6;' : ''}
+                `;
+                
+                let statusBadge = "";
+            if (esDesconectado) {
+                    statusBadge = '<span class="player-status" style="display: inline-block; padding: 4px 10px; background: #9ca3af; color: white; border-radius: 12px; font-size: 0.75em; font-weight: 600; margin-left: 8px; animation: fadeIn 0.3s ease;">Salió</span>';
+            } else if (jugadoresListos.includes(jugador)) {
+                    statusBadge = '<span class="player-status" style="display: inline-block; padding: 4px 10px; background: var(--success); color: white; border-radius: 12px; font-size: 0.75em; font-weight: 600; margin-left: 8px; animation: fadeIn 0.3s ease;">✓ Listo</span>';
+            }
+            
+            const colorNombre = esDesconectado ? '#6b7280' : '#3b82f6';
+            const colorPuntos = esDesconectado ? '#6b7280' : 'var(--primary)';
+            
+            tr.innerHTML = `
+                    <td style="padding: 16px 15px; border: none; border-radius: var(--radius-md) 0 0 var(--radius-md); font-weight: 600; color: ${colorNombre};">${jugador}${statusBadge}</td>
+                    <td style="padding: 16px 15px; border: none; border-radius: 0 var(--radius-md) var(--radius-md) 0; font-weight: 700; color: ${colorPuntos}; font-size: 1.1em; text-align: right;">${score}</td>
+            `;
+            tablaPuntuaciones.appendChild(tr);
+                index++;
+        }
+        
+        actualizarBotonAnfitrion();
+        actualizarBotonListo();
+    });
+        
+        // Chat en tiempo real
+        socket.on("nuevo_mensaje_chat", (data) => {
+            const esPropio = data.jugador === jugadorActual;
+            const tipo = data.tipo || "usuario";
+            agregarMensajeChat(data.jugador, data.mensaje, esPropio, tipo);
+            
+            // Sonido según el tipo de mensaje
+            if (typeof soundSystem !== 'undefined') {
+                if (tipo === "sistema_moderacion") {
+                    soundSystem.playError();  // Sonido de error para moderación
+                } else if (!esPropio) {
+                    soundSystem.playMessage();  // Sonido normal para mensajes de otros
+                }
+            }
+        });
+        
+        // Manejar mensajes rechazados por el filtro
+        socket.on("mensaje_rechazado", (data) => {
+            mostrarNotificacion(`❌ ${data.razon}`);
+            if (typeof soundSystem !== 'undefined') {
+                soundSystem.playError();
+            }
+        });
+
+        // Cuando la configuración se actualiza
+        socket.on("configuracion_actualizada", (data) => {
+            console.log("Configuración actualizada:", data);
+            actualizarConfiguracion(data);
+            mostrarNotificacion("⚙️ Configuración actualizada");
+    });
+
+    // Cuando el anfitrión inicia el juego
+    socket.on("start_game", data => {
+        console.log("Juego Iniciado, datos:", data);
+        isNavigatingToGame = true;
+            
+            // Si hay equipos, mostrarlos antes de ir al juego
+            if (data.modo_equipos && data.equipos) {
+                mostrarEquipos(data.equipos);
+                setTimeout(() => {
+                    window.location.href = `/game/${data.codigo}`;
+                }, 2000);
+            } else {
+        window.location.href = `/game/${data.codigo}`;
+            }
+        });
+
+        // Ya no se usa: ahora se reasigna anfitrión automáticamente
+        
+        socket.on("nuevo_anfitrion", data => {
+            const nuevoAnfitrion = data.nuevo_anfitrion;
+            const mensaje = data.mensaje;
+            
+            // Mostrar notificación
+            mostrarNotificacion(mensaje, "success");
+            
+            // Si yo soy el nuevo anfitrión, actualizar UI
+            if (nuevoAnfitrion === jugador) {
+                // Mostrar botón de iniciar si no está visible
+                const startButton = document.getElementById("start-game-btn");
+                if (startButton) {
+                    startButton.style.display = "block";
+                }
+                
+                // Mostrar notificación especial
+                mostrarNotificacion("🎉 ¡Ahora eres el anfitrión de la sala!", "success");
+            }
+            
+            console.log(`👑 Nuevo anfitrión: ${nuevoAnfitrion}`);
+        });
+        
+        // Configurar botones
+        if (esAnfitrion) {
+            btnIniciar.style.display = "block";
+            btnReady.style.display = "none";
+            actualizarBotonAnfitrion();
+        } else {
+            btnIniciar.style.display = "none";
+            btnReady.style.display = "block";
+            actualizarBotonListo();
+        }
+        
+        // Cargar configuración de sala
+        cargarConfiguracionSala();
+    }
+    
+    function actualizarConfiguracion(config) {
+        if (config.dificultad) {
+            document.getElementById("config-dificultad").textContent = config.dificultad;
+        }
+        if (config.modo_juego) {
+            document.getElementById("config-modo").textContent = config.modo_juego;
+        }
+        if (config.rondas) {
+            document.getElementById("config-rondas").textContent = config.rondas;
+        }
+        
+        // Actualizar features
+        const featuresContainer = document.getElementById("features-container");
+        featuresContainer.innerHTML = '';
+        
+        if (config.chat_habilitado) {
+            featuresContainer.innerHTML += '<span class="feature-badge">💬 Chat</span>';
+            chatHabilitado = true;
+            chatContainer.style.display = 'flex';
+        } else {
+            chatHabilitado = false;
+            chatContainer.style.display = 'none';
+        }
+        
+        if (config.powerups_habilitados) {
+            featuresContainer.innerHTML += '<span class="feature-badge">⚡ Power-Ups</span>';
+        }
+        
+        if (config.sonidos_habilitados) {
+            featuresContainer.innerHTML += '<span class="feature-badge">🔊 Sonidos</span>';
+        }
+        
+        if (config.validacion_activa) {
+            featuresContainer.innerHTML += '<span class="feature-badge">✅ Validación</span>';
+        }
+    }
+    
+    async function cargarConfiguracionSala() {
+        // Esto se podría mejorar con una API específica
+        // Por ahora, la configuración viene con player_joined
+    }
+    
+    function mostrarEquipos(equipos) {
+        const equiposPanel = document.getElementById("equipos-panel");
+        const equiposContainer = document.getElementById("equipos-container");
+        
+        let html = '';
+        for (const [nombreEquipo, miembros] of Object.entries(equipos)) {
+            const color = nombreEquipo.includes('A') ? 'var(--primary)' : 'var(--success)';
+            html += `
+                <div style="margin: 10px 0; padding: 15px; background: white; border-radius: var(--radius-md); border-left: 4px solid ${color};">
+                    <h4 style="margin: 0 0 10px 0; color: ${color}; font-size: 1em;">${nombreEquipo}</h4>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        ${miembros.map(m => `<li style="margin: 5px 0; color: var(--dark);">${m}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        equiposContainer.innerHTML = html;
+        equiposPanel.style.display = 'block';
+        
+        // Notificación
+        mostrarNotificacion('⚽ ¡Equipos creados!');
+    }
+
+    function actualizarBotonAnfitrion() {
+        if (!esAnfitrion) return; 
+
+        if (finDelJuego) {
+            btnIniciar.disabled = true;
+            btnIniciar.innerHTML = '<span class="btn-icon">🏁</span> Juego Terminado';
+            btnIniciar.style.opacity = 0.6;
+            btnIniciar.style.cursor = "not-allowed";
+            waitingIndicator.style.display = "none";
+        } else if (totalJugadores === jugadoresListos.length && totalJugadores > 1) {
+            btnIniciar.disabled = false;
+            btnIniciar.innerHTML = '<span class="btn-icon">🚀</span> Iniciar Siguiente Ronda';
+            btnIniciar.onclick = iniciarJuego;
+            btnIniciar.style.opacity = 1;
+            btnIniciar.style.cursor = "pointer";
+            waitingIndicator.style.display = "none";
+        } else {
+            btnIniciar.disabled = true;
+            btnIniciar.innerHTML = `<span class="btn-icon">⏱️</span> Esperando jugadores... (${jugadoresListos.length}/${totalJugadores})`;
+            btnIniciar.style.opacity = 0.6;
+            btnIniciar.style.cursor = "not-allowed";
+            waitingIndicator.style.display = "block";
+            waitingText.textContent = `Esperando a ${totalJugadores - jugadoresListos.length} jugador(es)...`;
+        }
+    }
+    
+    function actualizarBotonListo() {
+        if (esAnfitrion) {
+            btnReady.style.display = "none";
+        } else if (jugadoresListos.includes(jugadorActual)) {
+            btnReady.style.display = "block";
+            btnReady.disabled = true;
+            btnReady.innerHTML = '<span class="btn-icon">✓</span> ¡Listo!';
+            btnReady.style.opacity = 0.6;
+        } else {
+            btnReady.style.display = "block";
+            btnReady.disabled = false;
+            btnReady.innerHTML = '<span class="btn-icon">✓</span> ¡Estoy Listo!';
+            btnReady.style.opacity = 1;
+        }
+    }
+    
+    btnReady.addEventListener("click", () => {
+        socket.emit("player_ready", { codigo: codigoActual, jugador: jugadorActual });
+        
+        // Sonido al marcar listo
+        if (typeof soundSystem !== 'undefined') {
+            soundSystem.playReady();
+        }
+    });
+
+    // Iniciar juego (solo anfitrión)
+    function iniciarJuego() {
+        if (esAnfitrion && totalJugadores < 2) {
+            errorMensaje.textContent = "⚠️ Debe haber al menos 2 jugadores para iniciar.";
+            errorMensaje.style.display = "block";
+            return;
+        }
+
+        if (esAnfitrion) {
+            errorMensaje.style.display = "none";
+            isNavigatingToGame = true;
+            socket.emit("host_is_starting", { codigo: codigoActual, jugador: jugadorActual });
+            setTimeout(() => {
+                window.location.href = `/start/${codigoActual}?jugador=${jugadorActual}`;
+            }, 100);
+        } else {
+            alert("¡Solo el anfitrión puede iniciar el juego!");
+        }
+    }
+
+    const formNombre = document.getElementById("form-nombre-modal");
+    const inputNombre = document.getElementById("input-nombre-modal");
+    
+    formNombre.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const nombre = inputNombre.value.trim();
+        
+        if (!nombre) {
+            alert("⚠️ Por favor ingresa un nombre válido.");
+            return;
+        }
+        
+        try {
+            const res = await fetch("/join_room", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ nombre, codigo: codigoActual }),
+            });
+            
+            const data = await res.json();
+            
+            if (data.ok) {
+                localStorage.setItem("jugador", nombre);
+                localStorage.setItem("codigo", codigoActual);
+                jugadorActual = nombre;
+                modal.classList.remove("show");
+                inicializarSala();
+            } else {
+                alert(`❌ Error al unirse: ${data.error}`);
+            }
+        } catch (error) {
+            console.error("Error al unirse:", error);
+            alert("❌ Ocurrió un error al intentar unirse a la sala.");
+        }
+    });
+    
+    // Toggle de sonidos
+    const soundToggle = document.getElementById("sound-toggle");
+    if (soundToggle) {
+        soundToggle.addEventListener("change", (e) => {
+            if (typeof soundSystem !== 'undefined') {
+                soundSystem.setEnabled(e.target.checked);
+                if (e.target.checked) {
+                    soundSystem.playButton();
+                }
+            }
+        });
+    }
+    
+    // Al cargar la página, verificar si hay jugador válido
+    window.addEventListener("load", () => {
+        if (validarJugador()) {
+            inicializarSala();
+        } else {
+            modal.classList.add("show");
+            inputNombre.focus();
+        }
+    });
+
+    // Advertencia al salir de la página
+    window.addEventListener('beforeunload', (e) => {
+        // No mostrar advertencia si estamos navegando al juego
+        if (isNavigatingToGame) return;
+        if (document.activeElement && document.activeElement.id === "btn-iniciar") return;
+        if (document.activeElement && document.activeElement.href && document.activeElement.href.includes('/game/')) return;
+
+        const mensaje = "Si sales ahora, abandonarás la sala de espera. ¿Estás seguro?";
+        e.returnValue = mensaje;
+        return mensaje;
+    });
+    
+    // Animaciones CSS adicionales
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    `;
+    document.head.appendChild(style);
+</script>
+</body>
+</html>

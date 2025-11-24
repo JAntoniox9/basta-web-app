@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Basta Web - ¡Juega Ahora!</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .logo-container {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .logo-container img {
+            max-width: 280px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.1));
+            animation: logoFloat 3s ease-in-out infinite;
+        }
+        
+        @keyframes logoFloat {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        .feature-list {
+            text-align: left;
+            margin: 25px 0;
+            padding: 0;
+            list-style: none;
+        }
+        
+        .feature-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+            font-size: 0.9em;
+            animation: slideInLeft 0.6s ease-out backwards;
+        }
+        
+        .feature-item:nth-child(1) { animation-delay: 0.1s; }
+        .feature-item:nth-child(2) { animation-delay: 0.2s; }
+        .feature-item:nth-child(3) { animation-delay: 0.3s; }
+        
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .feature-icon {
+            display: inline-block;
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 30px;
+        }
+        
+        .btn-icon {
+            display: inline-block;
+            margin-right: 8px;
+            font-size: 1.2em;
+        }
+        
+        footer {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            font-size: 0.85em;
+            color: var(--gray);
+        }
+    </style>
+</head>
+<body>
+    <main class="main-container">
+        <section class="card">
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='BastaTec.png') }}" 
+                     alt="Basta Tec Logo"
+                     onerror="this.style.display='none'; document.getElementById('fallback-title').style.display='block';">
+            </div>
+            
+            <h1 id="fallback-title" class="title" style="display: none;">¡BASTA!</h1>
+            
+            <p class="subtitle">Juego de palabras en tiempo real</p>
+            
+            <ul class="feature-list">
+                <li class="feature-item">
+                    <span class="feature-icon">👥</span>
+                    <strong>Multijugador</strong> - Juega con amigos en tiempo real
+                </li>
+                <li class="feature-item">
+                    <span class="feature-icon">⚡</span>
+                    <strong>Rápido y Divertido</strong> - Partidas dinámicas
+                </li>
+                <li class="feature-item">
+                    <span class="feature-icon">🎯</span>
+                    <strong>Competitivo</strong> - Demuestra tu vocabulario
+                </li>
+            </ul>
+            
+            <div class="btn-container">
+                <a href="/crear_sala" class="btn btn-host">
+                    <span class="btn-icon">👑</span>
+                    Crear Sala Nueva
+                </a>
+                
+                <a href="/unirse_sala" class="btn btn-join">
+                    <span class="btn-icon">🎮</span>
+                    Unirse a una Sala
+                </a>
+                
+                <a href="/admin" class="btn btn-admin">
+                    <span class="btn-icon">🔐</span>
+                    Panel Admin
+                </a>
+            </div>
+            
+            <footer>
+                Hecho con 💜 para jugadores de palabras
+            </footer>
+        </section>
+    </main>
+    
+    <script>
+        // Animación adicional al cargar
+        document.addEventListener('DOMContentLoaded', () => {
+            const card = document.querySelector('.card');
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.9)';
+            
+            setTimeout(() => {
+                card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+                card.style.opacity = '1';
+                card.style.transform = 'scale(1)';
+            }, 100);
+        });
+    </script>
+</body>
+</html>
