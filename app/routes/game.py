@@ -69,6 +69,7 @@ def create_room():
     return jsonify({"ok": True, "codigo": codigo})
 
 @game_bp.route("/join", methods=["POST"])
+@game_bp.route("/join_room", methods=["POST"])
 def join_room_http():
     data = request.json
     codigo = data.get("codigo")
