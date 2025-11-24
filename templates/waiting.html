@@ -692,13 +692,23 @@
     
     // Cuando un jugador marca que está listo
     socket.on("player_ready_update", (data) => {
-        console.log("Jugador listo:", data);
-        jugadoresListos = data.jugadores_listos || [];
-        actualizarBotonListo();
-        actualizarBotonAnfitrion();
-        
-        // Actualizar tabla de jugadores
-        socket.emit("join_room_event", { codigo: codigoActual, jugador: jugadorActual });
+        console.log("Jugador listo - Evento recibido:", data);
+        if (data && data.jugadores_listos) {
+            jugadoresListos = data.jugadores_listos || [];
+            console.log("Jugadores listos actualizados:", jugadoresListos);
+            actualizarBotonListo();
+            actualizarBotonAnfitrion();
+            
+            // Si el jugador actual está en la lista, mostrar notificación
+            if (jugadoresListos.includes(jugadorActual)) {
+                mostrarNotificacion("✅ ¡Estás listo!", "success");
+            }
+            
+            // Actualizar tabla de jugadores
+            socket.emit("join_room_event", { codigo: codigoActual, jugador: jugadorActual });
+        } else {
+            console.error("Datos inválidos en player_ready_update:", data);
+        }
     });
 
     // Cuando el anfitrión inicia el juego
@@ -868,12 +878,38 @@
     }
     
     btnReady.addEventListener("click", () => {
+        if (!socket || !socket.connected) {
+            console.error("Socket no conectado");
+            mostrarNotificacion("❌ Error de conexión. Recargando...", "error");
+            setTimeout(() => window.location.reload(), 1000);
+            return;
+        }
+        
+        if (!jugadorActual || jugadorActual === "null" || jugadorActual === "undefined") {
+            console.error("Jugador no válido:", jugadorActual);
+            mostrarNotificacion("❌ Error: Nombre de jugador no válido", "error");
+            return;
+        }
+        
+        console.log("Enviando player_ready:", { codigo: codigoActual, jugador: jugadorActual });
         socket.emit("player_ready", { codigo: codigoActual, jugador: jugadorActual });
         
         // Sonido al marcar listo
         if (typeof soundSystem !== 'undefined') {
             soundSystem.playReady();
         }
+        
+        // Deshabilitar botón temporalmente para evitar múltiples clics
+        btnReady.disabled = true;
+        btnReady.innerHTML = '<span class="btn-icon">⏳</span> Procesando...';
+        
+        // Rehabilitar después de 1 segundo si no hay respuesta
+        setTimeout(() => {
+            if (!jugadoresListos.includes(jugadorActual)) {
+                btnReady.disabled = false;
+                btnReady.innerHTML = '<span class="btn-icon">✓</span> ¡Estoy Listo!';
+            }
+        }, 1000);
     });
 
     // Iniciar juego (solo anfitrión)

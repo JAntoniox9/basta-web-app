@@ -1,6 +1,7 @@
 from app import socketio
 from flask import request
 from app.services.state_store import state_store
+from app.services.db_store import db_store
 from app.utils.helpers import get_client_ip
 import time
 
@@ -134,10 +135,14 @@ def handle_player_ready(data):
         print(f"⚠️ Datos incompletos en player_ready desde IP: {ip}")
         return
     
-    sala = state_store.get_sala(codigo)
+    # Usar db_store como fuente principal para mantener consistencia
+    sala = db_store.get_sala(codigo)
     if not sala:
-        print(f"⚠️ Sala {codigo} no encontrada para player_ready desde IP: {ip}")
-        return
+        # Si no está en db_store, intentar state_store (fallback)
+        sala = state_store.get_sala(codigo)
+        if not sala:
+            print(f"⚠️ Sala {codigo} no encontrada para player_ready desde IP: {ip}")
+            return
     
     # Inicializar jugadores_listos si no existe
     if "jugadores_listos" not in sala:
@@ -146,8 +151,19 @@ def handle_player_ready(data):
     # Agregar jugador a la lista de listos si no está
     if jugador not in sala["jugadores_listos"]:
         sala["jugadores_listos"].append(jugador)
-        state_store.save()
-        print(f"✅ Jugador {jugador} marcado como listo en sala {codigo} (IP: {ip})")
+        
+        # Actualizar en db_store (fuente principal)
+        try:
+            db_store.set_sala(codigo, sala)
+            print(f"✅ Jugador {jugador} marcado como listo en sala {codigo} (IP: {ip})")
+        except Exception as e:
+            print(f"⚠️ Error actualizando db_store para player_ready: {e}")
+            # Fallback a state_store si db_store falla
+            state_store.set_sala(codigo, sala)
+            state_store.save()
+        
+        # También actualizar state_store para operaciones en tiempo real
+        state_store.set_sala(codigo, sala)
     
     # Notificar a todos en la sala
     socketio.emit(
