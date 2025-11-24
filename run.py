@@ -17,5 +17,5 @@ flask_application = create_app()
 
 if __name__ == "__main__":
     print("🚀 Servidor Flask-SocketIO modularizado ejecutándose...")
-    socketio.run(flask_application, host="0.0.0.0", port=8081, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)
+    socketio.run(flask_application, host="0.0.0.0", port=8081, use_reloader=False, allow_unsafe_werkzeug=True)
 

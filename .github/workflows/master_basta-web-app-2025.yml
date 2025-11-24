@@ -54,6 +54,9 @@ jobs:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout
 
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
@@ -73,4 +76,5 @@ jobs:
         with:
           app-name: 'basta-web-app-2025'
           slot-name: 'Production'
+
           
